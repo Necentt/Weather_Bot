@@ -1,0 +1,2 @@
+weather_token = '56ada602c8df7c2986fe108137103e48'
+tg_token = '6267782241:AAHCPTeVH45sdDGApxIZyQBnaDjG68PIUAI'
