@@ -1,3 +1,5 @@
+import time
+
 from config import tg_token, weather_token
 from aiogram import Bot, types
 from aiogram.dispatcher import Dispatcher
@@ -18,7 +20,7 @@ class GetCity(StatesGroup):
 
 @dp.message_handler(commands='start')
 async def start(message: types.Message):
-    start_buttons = ['/help', '/today', '/for5days', '/set_name']
+    start_buttons = ['/help', '/today', '/for5days', '/set_name', '/pomodoro']
     keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
     keyboard.add(*start_buttons)
     await message.answer(
@@ -121,10 +123,71 @@ async def get_weather_5_days(message: types.Message):
     await message.answer(s)
 
 
+@dp.message_handler(commands='pomodoro')
+async def pomodoro(message: types.Message):
+    inline_btn_1 = types.InlineKeyboardButton('Начать работу', callback_data='button1')
+    inline_btn_2 = types.InlineKeyboardButton('Остановить работу', callback_data='button2')
+    inline_btn_3 = types.InlineKeyboardButton('Прекратить работу', callback_data='button3')
+    keyboard = types.InlineKeyboardMarkup(row_width=1).add(inline_btn_1, inline_btn_2, inline_btn_3)
+    await message.answer("Выберите что вам нужно", reply_markup=keyboard)
+
+
 @dp.message_handler(commands='set_name', state='*')
 async def start_city(message: types.Message, state: FSMContext):
     await message.answer('Введите название вашего города')
     await state.set_state(GetCity.waiting_for_get_city.state)
+
+
+a1 = True
+
+
+@dp.callback_query_handler(lambda c: c.data and c.data.startswith('button'))
+async def process_callback_kb1btn1(callback_query: types.CallbackQuery):
+    global a1
+    code = callback_query.data[-1]
+    if code.isdigit():
+        code = int(code)
+        if code == 1:
+            a1 = True
+            a = await bot.send_message(callback_query.from_user.id, text='Работа началась')
+            time.sleep(1)
+            count_pomodoro = 0
+            while True:
+                count_pomodoro += 1
+                for i in range(24, -1, -1):
+                    for j in range(59, -1, -1):
+                        time.sleep(0.5)
+                        await bot.edit_message_text(chat_id=callback_query.from_user.id,
+                                                    message_id=a['message_id'],
+                                                    text=f'Рабочий процесс {i} минут, {j} секунд')
+                        if not(a1):
+                            break
+                    if not (a1):
+                        break
+                if not (a1):
+                    b = await bot.send_message(chat_id=callback_query.from_user.id, text='Работа прекращена')
+                    time.sleep(1)
+                    await bot.delete_message(chat_id=callback_query.from_user.id, message_id=a['message_id'])
+                    time.sleep(1)
+                    await bot.delete_message(chat_id=callback_query.from_user.id, message_id=b['message_id'])
+                    break
+                if count_pomodoro % 4 != 0:
+                    for i in range(4, -1, -1):
+                        for j in range(60, 0, -1):
+                            time.sleep(0.1)
+                            await bot.edit_message_text(chat_id=callback_query.from_user.id,
+                                                        message_id=a['message_id'],
+                                                        text=f'Короткий перерыв {i} минут, {j} секунд')
+                else:
+                    for i in range(24, -1, -1):
+                        for j in range(60, 0, -1):
+                            time.sleep(1)
+                            await bot.edit_message_text(chat_id=callback_query.from_user.id,
+                                                        message_id=a['message_id'],
+                                                        text=f'Длинный перерыв {i} минут, {j} секунд')
+
+        elif code == 2:
+            a1 = False
 
 
 @dp.message_handler(state=GetCity.waiting_for_get_city)
@@ -141,6 +204,7 @@ async def get_city(message: types.Message, state: FSMContext):
     except:
         await message.answer('\U00002620 Проверьте и заново введите название города \U00002620')
         return
+
 
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)
