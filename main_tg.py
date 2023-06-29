@@ -1,5 +1,3 @@
-import time
-
 from config import tg_token, weather_token
 from aiogram import Bot, types
 from aiogram.dispatcher import Dispatcher
@@ -7,6 +5,7 @@ from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.utils import executor
+import time
 import requests
 import datetime as dt
 bot = Bot(token=tg_token)
@@ -41,6 +40,7 @@ async def tg_help(message: types.Message):
         f'/set_name - ввод названия нужного города. \n'
         f'/today - погода на сегодняшний день(прежде чем использовать эту команду, нужно ввести название города. \n'
         f'/for5days - погода на пять дней(прежде чем использовать эту команду, нужно ввести название города. \n'
+        f'/pomodoro - техника помидора по 30 минут'
     )
 
 
@@ -109,8 +109,8 @@ async def get_weather_5_days(message: types.Message):
                      f'{name_city[-1]}&appid={weather_token}&units=metric')
     data = r.json()
     #  pprint(data)
-    s = ''
     city = data['city']['name']
+    s = f'Погода на пять дней в городе: {city} \n'
     for i in range(0, 33, 8):
         date = dt.datetime.fromtimestamp(data['list'][i]['dt']).strftime('%d.%m.%Y')
         day_temp = data['list'][i]['main']['temp']
@@ -119,7 +119,7 @@ async def get_weather_5_days(message: types.Message):
             wd = code_to_smile[weather_description]
         else:
             wd = "Посмотри в окно, не пойму что там за погода!"
-        s += f'Погода на пять дней в городе: {city} \nДата: {date} \nТемпература: {day_temp}C° {wd} \n'
+        s += f'Дата: {date} \nТемпература: {day_temp}C° {wd} \n'
     await message.answer(s)
 
 
@@ -127,8 +127,7 @@ async def get_weather_5_days(message: types.Message):
 async def pomodoro(message: types.Message):
     inline_btn_1 = types.InlineKeyboardButton('Начать работу', callback_data='button1')
     inline_btn_2 = types.InlineKeyboardButton('Остановить работу', callback_data='button2')
-    inline_btn_3 = types.InlineKeyboardButton('Прекратить работу', callback_data='button3')
-    keyboard = types.InlineKeyboardMarkup(row_width=1).add(inline_btn_1, inline_btn_2, inline_btn_3)
+    keyboard = types.InlineKeyboardMarkup().add(inline_btn_1, inline_btn_2)
     await message.answer("Выберите что вам нужно", reply_markup=keyboard)
 
 
@@ -156,25 +155,26 @@ async def process_callback_kb1btn1(callback_query: types.CallbackQuery):
                 count_pomodoro += 1
                 for i in range(24, -1, -1):
                     for j in range(59, -1, -1):
-                        time.sleep(0.5)
+                        time.sleep(1)
                         await bot.edit_message_text(chat_id=callback_query.from_user.id,
                                                     message_id=a['message_id'],
                                                     text=f'Рабочий процесс {i} минут, {j} секунд')
-                        if not(a1):
+                        if not a1:
                             break
-                    if not (a1):
+                    if not a1:
                         break
-                if not (a1):
+                if not a1:
                     b = await bot.send_message(chat_id=callback_query.from_user.id, text='Работа прекращена')
                     time.sleep(1)
                     await bot.delete_message(chat_id=callback_query.from_user.id, message_id=a['message_id'])
                     time.sleep(1)
                     await bot.delete_message(chat_id=callback_query.from_user.id, message_id=b['message_id'])
                     break
+                message_break = await bot.send_message(chat_id=callback_query.from_user.id, text='ПЕРЕРЫВ')
                 if count_pomodoro % 4 != 0:
                     for i in range(4, -1, -1):
                         for j in range(60, 0, -1):
-                            time.sleep(0.1)
+                            time.sleep(1)
                             await bot.edit_message_text(chat_id=callback_query.from_user.id,
                                                         message_id=a['message_id'],
                                                         text=f'Короткий перерыв {i} минут, {j} секунд')
@@ -185,7 +185,7 @@ async def process_callback_kb1btn1(callback_query: types.CallbackQuery):
                             await bot.edit_message_text(chat_id=callback_query.from_user.id,
                                                         message_id=a['message_id'],
                                                         text=f'Длинный перерыв {i} минут, {j} секунд')
-
+                await bot.delete_message(chat_id=callback_query.from_user.id, message_id=message_break['message_id'])
         elif code == 2:
             a1 = False
 
@@ -198,6 +198,7 @@ async def get_city(message: types.Message, state: FSMContext):
                          f'{message.text}&appid={weather_token}&units=metric')
         data = r.json()
         city = data['city']['name']
+        print(city)
         await message.answer('Название города установлено')
         name_city.append(message.text)
         await state.finish()
